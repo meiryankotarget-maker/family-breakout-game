@@ -788,8 +788,25 @@ function getPraiseText(child) {
   return praises[Math.floor(Math.random()*praises.length)];
 }
 
-function showPraise(child){ paused=true; openPraise(); revealPraise(child.name, child.emoji, getPraiseText(child)); }
-function showMission(){ paused=true; openPraise(); revealPraise('🎯 משימה!','✅',MISSIONS[Math.floor(Math.random()*MISSIONS.length)]); }
+async function showPraise(child) {
+  paused = true;
+  openPraise();
+  try {
+    const res = await fetch('/api/praise', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        childName: child.name,
+        playerName: currentPlayer?.name || null
+      })
+    });
+    if (!res.ok) throw new Error('API failed');
+    const { praise } = await res.json();
+    revealPraise(child.name, child.emoji, praise);
+  } catch (err) {
+    revealPraise(child.name, child.emoji, getPraiseText(child));
+  }
+}function showMission(){ paused=true; openPraise(); revealPraise('🎯 משימה!','✅',MISSIONS[Math.floor(Math.random()*MISSIONS.length)]); }
 document.getElementById('praiseContinueBtn').addEventListener('click',()=>{
   document.getElementById('praisePopup').classList.add('hidden'); document.getElementById('praiseContent').classList.add('hidden');
   document.getElementById('praiseLoading').style.display='block'; paused=false; });
