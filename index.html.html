@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>משחק אהבת האחים</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap');
+
+  :root {
+    --bg1:#0a0a1a; --bg2:#0d1b3e; --bg3:#1a0a2e;
+    --p1:#e0f7fa; --p2:#4fc3f7; --p3:#0288d1; --pg:#4fc3f7;
+    --b1:#ffffff; --b2:#87ceeb; --b3:#1565c0; --bg_ball:#87ceeb;
+    --s1:#fff3c0; --s2:#e8c200; --s3:#b08800;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 50%,var(--bg3) 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:100vh; font-family:'Heebo',sans-serif; overflow:hidden; direction:rtl;
+  }
+  #gameWrapper { position:relative; display:flex; flex-direction:column; align-items:center; width:100%; max-width:480px; padding:0 8px; }
+  #hud { width:100%; display:flex; flex-direction:column; gap:6px; padding:8px 4px; position:relative; z-index:10; }
+  #hudTop { display:flex; justify-content:space-between; align-items:center; color:#fff; font-size:14px; font-weight:700; }
+  .hudItem { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:20px; padding:5px 14px; backdrop-filter:blur(10px); display:flex; align-items:center; gap:6px; }
+  .hudBtn { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:20px; padding:5px 10px; cursor:pointer; font-size:15px; backdrop-filter:blur(10px); transition:background 0.2s; }
+  .hudBtn:hover { background:rgba(255,255,255,0.18); }
+  #loveMeterContainer { width:100%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:20px; height:22px; overflow:hidden; position:relative; backdrop-filter:blur(10px); }
+  #loveMeterLabel { position:absolute; width:100%; text-align:center; color:#fff; font-size:11px; font-weight:700; line-height:22px; z-index:2; text-shadow:0 1px 3px rgba(0,0,0,0.5); letter-spacing:0.5px; }
+  #loveMeterFill { height:100%; width:0%; background:linear-gradient(90deg,#ff6b9d,#ff8c42,#ffd700); border-radius:20px; transition:width 0.5s ease; position:relative; box-shadow:0 0 15px rgba(255,107,157,0.6); }
+  #loveMeterFill::after { content:''; position:absolute; top:0; left:0; right:0; height:50%; background:rgba(255,255,255,0.3); border-radius:20px 20px 0 0; }
+  #gameCanvas { border-radius:16px; box-shadow:0 0 40px rgba(100,160,255,0.2),0 0 80px rgba(100,160,255,0.1); touch-action:none; cursor:none; display:block; border:1px solid rgba(255,255,255,0.1); }
+
+  /* ── SCREENS ── */
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; background:rgba(5,10,30,0.92); backdrop-filter:blur(12px); animation:fadeIn 0.3s ease; direction:rtl; text-align:center; overflow-y:auto; }
+  .screen.hidden { display:none; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .screenCard { background:linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)); border:1px solid rgba(255,255,255,0.15); border-radius:28px; padding:28px 26px; max-width:390px; width:93%; text-align:center; position:relative; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.1); animation:cardPop 0.4s cubic-bezier(0.175,0.885,0.32,1.275); margin:16px 0; }
+  @keyframes cardPop { from{transform:scale(0.8) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+  .screenCard::before { content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%; background:radial-gradient(ellipse at center,rgba(255,215,0,0.05) 0%,transparent 60%); animation:rotateBg 8s linear infinite; }
+  @keyframes rotateBg { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .screenEmoji { font-size:48px; margin-bottom:10px; animation:bounce 1s ease infinite alternate; }
+  @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-8px)} }
+  .screenTitle { font-size:26px; font-weight:900; color:#fff; margin-bottom:6px; text-shadow:0 0 20px rgba(255,215,0,0.5); }
+  .screenSub { font-size:13px; color:rgba(255,255,255,0.6); margin-bottom:18px; line-height:1.6; }
+  .btn { background:linear-gradient(135deg,#ffd700,#ff8c42); color:#1a0a00; border:none; border-radius:50px; padding:13px 32px; font-size:15px; font-weight:900; font-family:'Heebo',sans-serif; cursor:pointer; box-shadow:0 6px 20px rgba(255,140,66,0.4); transition:transform 0.15s,box-shadow 0.15s; position:relative; z-index:2; }
+  .btn:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(255,140,66,0.5); }
+  .btn:active { transform:translateY(0); }
+  .btnG { background:transparent; color:rgba(255,255,255,0.65); border:1px solid rgba(255,255,255,0.2); border-radius:50px; padding:10px 26px; font-size:14px; font-weight:700; font-family:'Heebo',sans-serif; cursor:pointer; transition:background 0.2s; position:relative; z-index:2; }
+  .btnG:hover { background:rgba(255,255,255,0.08); }
+
+  /* ── PRAISE ── */
+  #praisePopup { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:200; background:rgba(5,10,30,0.85); backdrop-filter:blur(8px); direction:rtl; }
+  #praisePopup.hidden { display:none; }
+  .praiseCard { background:linear-gradient(145deg,#fff,#fff8ee); border:3px solid #ffd700; border-radius:28px; padding:28px 22px; max-width:340px; width:88%; text-align:center; box-shadow:0 0 40px rgba(255,215,0,0.4),0 20px 60px rgba(0,0,0,0.5); animation:cardPop 0.4s cubic-bezier(0.175,0.885,0.32,1.275); position:relative; overflow:hidden; }
+  .praiseCard::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 0%,rgba(255,215,0,0.15),transparent 70%); }
+  #loadingDots { animation:dotPulse 1.2s ease-in-out infinite; }
+  @keyframes dotPulse { 0%,100%{opacity:1;letter-spacing:6px} 50%{opacity:0.4;letter-spacing:12px} }
+  .pcName { font-size:24px; font-weight:900; color:#c8860a; margin-bottom:4px; position:relative; }
+  .pcEmoji { font-size:42px; margin:8px 0; position:relative; }
+  .pcText { font-size:17px; font-weight:700; color:#333; line-height:1.5; margin-bottom:14px; position:relative; }
+  .pcStar { color:#ffd700; font-size:18px; letter-spacing:4px; position:relative; }
+
+  /* ── SETTINGS ── */
+  .sRow { display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:11px 14px; margin-bottom:9px; position:relative; z-index:2; }
+  .sLabel { color:#fff; font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .toggle { position:relative; width:46px; height:25px; cursor:pointer; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .tSlider { position:absolute; inset:0; background:rgba(255,255,255,0.15); border-radius:25px; transition:background 0.3s; }
+  .tSlider::before { content:''; position:absolute; width:19px; height:19px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform 0.3s; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+  .toggle input:checked+.tSlider { background:#ffd700; }
+  .toggle input:checked+.tSlider::before { transform:translateX(21px); }
+  .diffBtns { display:flex; gap:5px; }
+  .diffBtn { padding:5px 11px; border-radius:18px; border:1px solid rgba(255,255,255,0.2); background:transparent; color:rgba(255,255,255,0.5); font-size:12px; font-weight:700; font-family:'Heebo',sans-serif; cursor:pointer; transition:all 0.2s; }
+  .diffBtn.active { background:linear-gradient(135deg,#ffd700,#ff8c42); color:#1a0a00; border-color:transparent; }
+  .skinGrid { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; position:relative; z-index:2; margin:6px 0 14px; }
+  .skinCard { width:64px; height:64px; border-radius:14px; border:2px solid rgba(255,255,255,0.15); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; transition:all 0.2s; font-size:9px; font-weight:700; color:rgba(255,255,255,0.7); position:relative; overflow:hidden; }
+  .skinCard:hover { transform:scale(1.07); }
+  .skinCard.active { border:2px solid #ffd700; box-shadow:0 0 14px rgba(255,215,0,0.5); }
+  .skinEmoji { font-size:22px; }
+  .skinCheck { position:absolute; top:3px; left:3px; font-size:12px; display:none; }
+  .skinCard.active .skinCheck { display:block; }
+
+  /* ── LEADERBOARD ── */
+  .lbRow { display:flex; align-items:center; justify-content:space-between; padding:9px 13px; border-radius:13px; margin-bottom:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); position:relative; z-index:2; }
+  .lbRow.me { background:rgba(255,215,0,0.1); border-color:rgba(255,215,0,0.3); }
+  .lbRank { font-size:17px; min-width:26px; }
+  .lbName { color:#fff; font-size:12px; font-weight:700; flex:1; text-align:right; padding:0 8px; }
+  .lbScore { color:#ffd700; font-size:14px; font-weight:900; }
+  .lbLevel { color:rgba(255,255,255,0.4); font-size:10px; }
+
+  .floatingHeart { position:fixed; font-size:20px; animation:floatUp 2s ease-out forwards; pointer-events:none; z-index:300; }
+  @keyframes floatUp { from{transform:translateY(0) rotate(0deg) scale(1);opacity:1} to{transform:translateY(-200px) rotate(30deg) scale(0.5);opacity:0} }
+  #levelComplete { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:150; background:rgba(5,10,30,0.88); backdrop-filter:blur(8px); direction:rtl; }
+  #levelComplete.hidden { display:none; }
+  .starsRow { display:flex; gap:8px; justify-content:center; margin:10px 0; font-size:28px; }
+  .livesDisplay { display:flex; gap:4px; align-items:center; }
+  .lifeHeart { font-size:14px; }
+  #cursorDot { position:fixed; width:10px; height:10px; background:rgba(255,255,255,0.45); border-radius:50%; pointer-events:none; z-index:9999; transform:translate(-50%,-50%); display:none; }
+  .scoreFlash { position:fixed; font-size:17px; font-weight:900; color:#ffd700; pointer-events:none; z-index:250; animation:sFloat 1s ease-out forwards; text-shadow:0 0 10px rgba(255,215,0,0.8); white-space:nowrap; }
+  @keyframes sFloat { from{transform:translateY(0);opacity:1} to{transform:translateY(-60px);opacity:0} }
+
+  /* ── BRICK PROGRESS BAR ── */
+  #brickProgressContainer {
+    width:100%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+    border-radius:20px; height:22px; overflow:hidden; position:relative; backdrop-filter:blur(10px);
+  }
+  #brickProgressLabel {
+    position:absolute; width:100%; text-align:center; color:#fff; font-size:11px;
+    font-weight:700; line-height:22px; z-index:2; text-shadow:0 1px 3px rgba(0,0,0,0.5); letter-spacing:0.5px;
+    direction:rtl;
+  }
+  #brickProgressFill {
+    height:100%; width:100%;
+    background: linear-gradient(90deg,#43ea80,#7bdc3e,#ffd700);
+    border-radius:20px; transition:width 0.5s ease; position:relative;
+    box-shadow:0 0 12px rgba(100,220,100,0.45);
+  }
+  #brickProgressFill::after {
+    content:''; position:absolute; top:0; left:0; right:0; height:50%;
+    background:rgba(255,255,255,0.25); border-radius:20px 20px 0 0;
+  }
+
+  /* ── PLAYER SELECT ── */
+  #playerSelectScreen .screenCard { max-width:430px; }
+  .playerGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin:14px 0; position:relative; z-index:2; }
+  .playerCard {
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 16px; padding: 10px 4px 8px;
+    cursor: pointer; text-align: center;
+    transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+    position: relative; overflow: hidden;
+  }
+  .playerCard:hover { transform: scale(1.08); border-color: rgba(255,215,0,0.5); }
+  .playerCard.selected {
+    border-color: #ffd700;
+    background: rgba(255,215,0,0.12);
+    box-shadow: 0 0 18px rgba(255,215,0,0.4);
+    transform: scale(1.08);
+  }
+  .playerCard .pEmoji { font-size: 26px; display:block; margin-bottom:4px; }
+  .playerCard .pName  { font-size: 11px; font-weight: 800; color: #fff; line-height:1.2; }
+  .playerCard .pCheck { position:absolute; top:4px; right:5px; font-size:13px; display:none; }
+  .playerCard.selected .pCheck { display:block; }
+  /* Shimmer on selected */
+  .playerCard.selected::after {
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(120deg,rgba(255,255,255,0) 30%,rgba(255,255,255,0.18) 50%,rgba(255,255,255,0) 70%);
+    animation: shimmerCard 1.6s ease infinite;
+  }
+  @keyframes shimmerCard { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+
+  /* HUD player badge */
+  #playerBadge { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:800; color:#ffd700; }
+  #playerBadge .badgeEmoji { font-size:16px; }
+</style>
+</head>
+<body>
+<div id="cursorDot"></div>
+
+<!-- PLAYER SELECT -->
+<div id="playerSelectScreen" class="screen">
+  <div class="screenCard">
+    <div class="screenEmoji" style="font-size:40px">👋</div>
+    <div class="screenTitle">מי משחק עכשיו?</div>
+    <div class="screenSub" style="margin-bottom:6px">בחר את עצמך ונתאים את המחמאות בשבילך!</div>
+    <div class="playerGrid" id="playerGrid"></div>
+    <button class="btn" id="confirmPlayerBtn" disabled style="opacity:0.45;transition:opacity 0.3s">▶ בחר והמשך</button>
+  </div>
+</div>
+
+<!-- START -->
+<div id="startScreen" class="screen hidden">
+  <div class="screenCard">
+    <div class="screenEmoji">💖</div>
+    <div class="screenTitle">אהבת האחים</div>
+    <div class="screenSub">שבור לבנים, גלה מחמאות<br>ובנה את אהבת המשפחה!</div>
+    <div style="font-size:22px;margin-bottom:16px;position:relative;z-index:2">🌟 💝 🌟</div>
+    <button class="btn" id="startBtn">▶ התחל לשחק</button><br><br>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btnG" id="openLbBtn">🏆 שיאים</button>
+      <button class="btnG" id="openSetBtn">⚙️ הגדרות</button>
+    </div>
+    <div style="margin-top:14px;font-size:11px;color:rgba(255,255,255,0.3);position:relative;z-index:2">הזז עכבר / גע במסך לשלוט במחבט</div>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameOverScreen" class="screen hidden">
+  <div class="screenCard">
+    <div class="screenEmoji">😢</div>
+    <div class="screenTitle">המשחק נגמר</div>
+    <div class="screenSub">טוב ניסיון! נסה שוב</div>
+    <div style="font-size:20px;color:#ffd700;font-weight:900;margin-bottom:18px;position:relative;z-index:2" id="finalScore">ניקוד: 0</div>
+    <button class="btn" id="goMenuBtn" style="font-size:17px;padding:14px 36px">👤 שחקן חדש</button>
+    <br><br>
+    <button class="btn" id="restartBtn" style="font-size:13px;padding:10px 26px;background:linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0.06));color:rgba(255,255,255,0.8);box-shadow:none;border:1px solid rgba(255,255,255,0.2)">🔄 נסה שוב</button>
+  </div>
+</div>
+
+<!-- LEVEL COMPLETE -->
+<div id="levelComplete" class="hidden">
+  <div class="screenCard">
+    <div class="screenEmoji">🎉</div>
+    <div class="screenTitle" id="lcTitle">כל הכבוד!</div>
+    <div class="starsRow" id="lcStars">⭐⭐⭐</div>
+    <div class="screenSub" id="lcMsg">עברת לשלב הבא!</div>
+    <button class="btn" id="nextLvlBtn">הבא ▶</button>
+  </div>
+</div>
+
+<!-- PRAISE -->
+<div id="praisePopup" class="hidden">
+  <div class="praiseCard">
+    <div id="praiseLoading">
+      <div style="font-size:34px;margin-bottom:10px;animation:bounce 0.8s ease infinite alternate">✨</div>
+      <div style="font-size:13px;font-weight:700;color:#b08800;margin-bottom:8px">מנסח מחמאה מיוחדת...</div>
+      <div id="loadingDots" style="font-size:20px;color:#e6a200;letter-spacing:6px">● ● ●</div>
+    </div>
+    <div id="praiseContent" class="hidden">
+      <div class="pcStar">★ ★ ★</div>
+      <div class="pcEmoji" id="pcEmoji">⭐</div>
+      <div class="pcName" id="pcName">שם</div>
+      <div class="pcText" id="pcText">מחמאה</div>
+      <div class="pcStar">★ ★ ★</div>
+      <button class="btn" id="praiseContinueBtn" style="margin-top:14px">המשך 💖</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settingsScreen" class="screen hidden">
+  <div class="screenCard">
+    <div class="screenTitle" style="margin-bottom:16px">⚙️ הגדרות</div>
+    <div class="sRow">
+      <div class="sLabel">🔊 צלילי משחק</div>
+      <label class="toggle"><input type="checkbox" id="sfxToggle" checked><span class="tSlider"></span></label>
+    </div>
+    <div class="sRow">
+      <div class="sLabel">🎵 מוזיקת רקע</div>
+      <label class="toggle"><input type="checkbox" id="musicToggle" checked><span class="tSlider"></span></label>
+    </div>
+    <div class="sRow">
+      <div class="sLabel">⚡ רמת קושי</div>
+      <div class="diffBtns">
+        <button class="diffBtn" data-d="easy">קל</button>
+        <button class="diffBtn active" data-d="normal">רגיל</button>
+        <button class="diffBtn" data-d="hard">קשה</button>
+      </div>
+    </div>
+    <div style="color:rgba(255,255,255,0.5);font-size:12px;font-weight:700;text-align:right;margin-bottom:8px;position:relative;z-index:2">🎨 ערכת עיצוב</div>
+    <div class="skinGrid" id="skinGrid"></div>
+    <button class="btn" id="closeSetBtn">שמור וסגור ✓</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="leaderboardScreen" class="screen hidden">
+  <div class="screenCard">
+    <div class="screenTitle" style="margin-bottom:4px">🏆 לוח שיאים</div>
+    <div class="screenSub">10 הניקודים הגבוהים ביותר</div>
+    <div id="lbList" style="max-height:340px;overflow-y:auto;padding-left:2px;scrollbar-width:thin;scrollbar-color:rgba(255,215,0,0.3) transparent"></div><br>
+    <button class="btn" id="closeLbBtn">סגור</button>
+  </div>
+</div>
+
+<!-- GAME WRAPPER -->
+<div id="gameWrapper">
+  <div id="hud">
+    <div id="hudTop">
+      <div class="hudItem"><span>⭐</span><span id="scoreDisplay">0</span></div>
+      <div class="hudItem" id="playerBadge" style="display:none"><span class="badgeEmoji" id="badgeEmoji">😊</span><span id="badgeName"></span></div>
+      <div style="display:flex;gap:5px">
+        <button class="hudBtn" id="settingsHudBtn">⚙️</button>
+        <button class="hudBtn" id="lbHudBtn">🏆</button>
+        <button class="hudBtn" id="muteBtn">🔊</button>
+      </div>
+      <div class="hudItem" style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.7)">שלב <span id="levelDisplay">1</span></div>
+      <div class="hudItem"><div class="livesDisplay" id="livesDisplay"></div></div>
+    </div>
+    <div id="loveMeterContainer">
+      <div id="loveMeterLabel">💖 מד אהבת האחים 💖</div>
+      <div id="loveMeterFill"></div>
+    </div>
+    <div id="brickProgressContainer">
+      <div id="brickProgressLabel">✨ 0 לבנות נותרו</div>
+      <div id="brickProgressFill"></div>
+    </div>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+</div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════
+const CHILDREN = [
+  {name:'תמר',       emoji:'🌸',color:'#ff6b9d'},
+  {name:'חיים',      emoji:'⚡',color:'#4fc3f7'},
+  {name:'נחמי',      emoji:'🌺',color:'#ba68c8'},
+  {name:'יהודית',   emoji:'🦋',color:'#f06292'},
+  {name:'אלישבע',  emoji:'🌟',color:'#ffb74d'},
+  {name:'מירי',      emoji:'🌈',color:'#81c784'},
+  {name:'שרי',       emoji:'💎',color:'#64b5f6'},
+  {name:'ישראל דוד',emoji:'🦁',color:'#ffd54f'}
+];
+
+const PRAISES = {
+  'תמר':      ['תמר, את כל כך חמודה ואוהבת! 💖','מה טוב שיש לנו את תמר במשפחה!','תמר תמיד מביאה שמחה לכולם! 🌸','החיוך שלך מאיר את הבית כולו!'],
+  'חיים':     ['חיים, אתה חזק ואמיץ! ⚡','כמה כיף שיש לנו את חיים במשפחה!','חיים תמיד עוזר לכולם בשמחה! 💪','אתה אח מדהים ומיוחד!'],
+  'נחמי':     ['נחמי, את טובת לב ומקסימה! 🌺','כמה שנחמי חכמה ונחמדה!','נחמי תמיד יודעת לשמח את כולם!','המשפחה כל כך אוהבת אותך! 💜'],
+  'יהודית':  ['יהודית, את כל כך מיוחדת! 🦋','כמה שיהודית עושה את כולם מאושרים!','יש לך לב גדול של זהב!','כמה שאנחנו אוהבים את יהודית!'],
+  'אלישבע': ['אלישבע, את מבריקה כמו כוכב! 🌟','כמה שאלישבע חכמה ויצירתית!','אלישבע תמיד עושה דברים מדהימים!','את הגאווה של כולנו! ✨'],
+  'מירי':     ['מירי, את שמחה כמו קשת! 🌈','כמה שמירי נחמדה וטובת לב!','מירי תמיד מביאה צבע לחיים!','המשפחה כל כך אוהבת אותך! 💚'],
+  'שרי':      ['שרי, את יקרה כמו יהלום! 💎','כמה שאנחנו אוהבים את שרי!','שרי תמיד עושה הכל בחן ובחיוך!','יש לך נשמה יפה כל כך! 💙'],
+  'ישראל דוד':['ישראל דוד, אתה גיבור אמיתי! 🦁','כמה שישראל דוד חזק ואמיץ!','ישראל דוד תמיד שם לכולם! 💛','אתה האח הכי טוב!']
+};
+
+const MISSIONS = [
+  '🤗 תן חיבוק חם לאח או אחות עכשיו!','😊 אמור מחמאה אמיתית לאח/אחות!',
+  '🙏 אמור תודה לאבא ואמא על משהו!','💬 שתף משהו טוב שקרה היום עם המשפחה!',
+  '🎁 עשה טובה קטנה לאח/אחות בלי לבקש!','😄 ספר בדיחה לכל המשפחה!',
+  '🌟 אמור לאח/אחות מה אתה מעריך בהם!','🎵 שיר שיר שמח יחד עם המשפחה!'
+];
+
+const POWERUPS_DATA = [
+  {type:'multi',  emoji:'✨',label:'כדור כפול',color:'#a78bfa'},
+  {type:'big',    emoji:'🔮',label:'כדור ענק', color:'#34d399'},
+  {type:'fast',   emoji:'⚡',label:'מהיר!',     color:'#fbbf24'},
+  {type:'through',emoji:'💥',label:'כדור פורץ',color:'#f87171'}
+];
+
+// ══════════════════════════════════════════════
+//  SKINS
+// ══════════════════════════════════════════════
+const SKINS = [
+  { id:'night',  name:'לילה',    emoji:'🌙',
+    bg:['#0a0a1a','#0d1b3e','#1a0a2e'], paddle:['#e0f7fa','#4fc3f7','#0288d1'], pg:'#4fc3f7',
+    ball:['#fff','#87ceeb','#1565c0'],   bg_ball:'#87ceeb', star:['#fff3c0','#e8c200','#b08800'],
+    cardBg:'linear-gradient(135deg,#0a0a1a,#0d1b3e)' },
+  { id:'sunset', name:'שקיעה',   emoji:'🌅',
+    bg:['#1a0500','#3d0f00','#1a001a'], paddle:['#ffe4c4','#ff7043','#d32f2f'], pg:'#ff7043',
+    ball:['#fff8e1','#ffcc80','#e65100'], bg_ball:'#ffcc80', star:['#fff9c4','#ffeb3b','#f9a825'],
+    cardBg:'linear-gradient(135deg,#1a0500,#3d0f00)' },
+  { id:'ocean',  name:'אוקיינוס',emoji:'🌊',
+    bg:['#00061a','#001a3d','#002244'], paddle:['#e0ffff','#00e5ff','#0077c2'], pg:'#00e5ff',
+    ball:['#fff','#80deea','#006064'],   bg_ball:'#80deea', star:['#e0f7fa','#26c6da','#00838f'],
+    cardBg:'linear-gradient(135deg,#00061a,#001a3d)' },
+  { id:'forest', name:'יער',      emoji:'🌿',
+    bg:['#001a00','#003300','#0a1a00'], paddle:['#f1f8e9','#aed581','#558b2f'], pg:'#aed581',
+    ball:['#fff','#a5d6a7','#2e7d32'],   bg_ball:'#a5d6a7', star:['#f9fbe7','#e6ee9c','#9e9d24'],
+    cardBg:'linear-gradient(135deg,#001a00,#003300)' },
+  { id:'candy',  name:'סוכריה',  emoji:'🍬',
+    bg:['#1a0020','#2d0040','#1a0030'], paddle:['#fce4ec','#f48fb1','#c2185b'], pg:'#f48fb1',
+    ball:['#fff','#f8bbd0','#880e4f'],   bg_ball:'#f8bbd0', star:['#fce4ec','#f06292','#c2185b'],
+    cardBg:'linear-gradient(135deg,#1a0020,#2d0040)' }
+];
+
+let skin = SKINS[0];
+
+function applySkin(s) {
+  skin = s;
+  const r = document.documentElement.style;
+  r.setProperty('--bg1',s.bg[0]); r.setProperty('--bg2',s.bg[1]); r.setProperty('--bg3',s.bg[2]);
+  r.setProperty('--p1',s.paddle[0]); r.setProperty('--p2',s.paddle[1]); r.setProperty('--p3',s.paddle[2]); r.setProperty('--pg',s.pg);
+  r.setProperty('--b1',s.ball[0]); r.setProperty('--b2',s.ball[1]); r.setProperty('--b3',s.ball[2]); r.setProperty('--bg_ball',s.bg_ball);
+  r.setProperty('--s1',s.star[0]); r.setProperty('--s2',s.star[1]); r.setProperty('--s3',s.star[2]);
+  document.querySelectorAll('.skinCard').forEach(c => c.classList.toggle('active', c.dataset.id===s.id));
+  localStorage.setItem('skin', s.id);
+}
+
+function buildSkinGrid() {
+  const g = document.getElementById('skinGrid'); g.innerHTML='';
+  SKINS.forEach(s => {
+    const c = document.createElement('div'); c.className='skinCard'+(s.id===skin.id?' active':'');
+    c.dataset.id=s.id; c.style.background=s.cardBg;
+    c.innerHTML=`<span class="skinCheck">✅</span><span class="skinEmoji">${s.emoji}</span><span>${s.name}</span>`;
+    c.addEventListener('click',()=>applySkin(s)); g.appendChild(c);
+  });
+}
+
+// ══════════════════════════════════════════════
+//  SETTINGS
+// ══════════════════════════════════════════════
+const cfg = { sfx:true, music:true, diff:'normal' };
+const DIFF = { easy:0.72, normal:1.0, hard:1.45 };
+
+function loadCfg() {
+  try { Object.assign(cfg, JSON.parse(localStorage.getItem('cfg')||'{}')); } catch{}
+  document.getElementById('sfxToggle').checked   = cfg.sfx;
+  document.getElementById('musicToggle').checked = cfg.music;
+  document.querySelectorAll('.diffBtn').forEach(b => b.classList.toggle('active', b.dataset.d===cfg.diff));
+  const s = SKINS.find(x=>x.id===localStorage.getItem('skin')) || SKINS[0];
+  applySkin(s);
+}
+
+function saveCfg() {
+  localStorage.setItem('cfg', JSON.stringify(cfg));
+  cfg.music ? startMusic() : stopMusic();
+}
+
+// ══════════════════════════════════════════════
+//  AUDIO  (Web Audio API — zero external files)
+// ══════════════════════════════════════════════
+let AC = null;
+function ac() { if(!AC) AC=new(window.AudioContext||window.webkitAudioContext)(); return AC; }
+
+function tone(freq,type,dur,vol=0.28,delay=0){
+  if(!cfg.sfx) return;
+  try{
+    const a=ac(), o=a.createOscillator(), g=a.createGain();
+    o.connect(g); g.connect(a.destination); o.type=type; o.frequency.value=freq;
+    const t=a.currentTime+delay;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+    o.start(t); o.stop(t+dur);
+  }catch{}
+}
+
+const SFX={
+  paddle()     { tone(340,'sine',0.07,0.22); },
+  wall()       { tone(200,'sine',0.04,0.1); },
+  brickNorm()  { tone(220,'square',0.05,0.12); },
+  brickChild() { [523,659,784,1047].forEach((f,i)=>tone(f,'sine',0.18,0.24,i*0.06)); },
+  brickMiss()  { [440,554,659].forEach((f,i)=>tone(f,'triangle',0.14,0.2,i*0.07)); },
+  powerup()    { [392,494,587,784].forEach((f,i)=>tone(f,'sine',0.2,0.2,i*0.05)); },
+  loseLife()   { [280,230,180].forEach((f,i)=>tone(f,'sawtooth',0.14,0.28,i*0.1)); },
+  levelUp()    { [523,659,784,1047,1319].forEach((f,i)=>tone(f,'sine',0.24,0.28,i*0.07)); },
+  loveFull()   { [523,659,784,523,659,784,1047].forEach((f,i)=>tone(f,'sine',0.28,0.26,i*0.08)); }
+};
+
+const MUSIC_N=[262,330,392,330,294,370,440,370,349,440,523,440,392,494,587,494];
+let mIdx=0, mTimer=null;
+function startMusic(){
+  if(!cfg.music) return; stopMusic();
+  (function next(){ tone(MUSIC_N[mIdx++%MUSIC_N.length],'sine',0.22,0.055); mTimer=setTimeout(next,220); })();
+}
+function stopMusic(){ if(mTimer){clearTimeout(mTimer);mTimer=null;} }
+
+// ══════════════════════════════════════════════
+//  LEADERBOARD
+// ══════════════════════════════════════════════
+function getLB(){ try{return JSON.parse(localStorage.getItem('lb')||'[]');}catch{return[];} }
+function saveLB(sc,lvl){
+  const lb=getLB();
+  lb.push({
+    score:sc, level:lvl,
+    date:new Date().toLocaleDateString('he-IL'),
+    player: currentPlayer ? currentPlayer.name : null,
+    emoji:  currentPlayer ? currentPlayer.emoji : '🎮'
+  });
+  lb.sort((a,b)=>b.score-a.score); lb.splice(10); localStorage.setItem('lb',JSON.stringify(lb));
+}
+function renderLB(curScore){
+  const lb=getLB(), el=document.getElementById('lbList');
+  const M=['🥇','🥈','🥉'];
+  el.innerHTML = lb.length===0
+    ? '<div style="color:rgba(255,255,255,0.4);font-size:13px;padding:16px">עוד אין שיאים — תהיה הראשון! 🌟</div>'
+    : lb.map((e,i)=>`<div class="lbRow${e.score===curScore?' me':''}">
+        <div class="lbRank">${M[i]||(i+1)+'.'}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex:1;padding:0 8px;justify-content:flex-end">
+          <div>
+            <div class="lbName" style="padding:0">${e.emoji||'🎮'} ${e.player||'אנונימי'}</div>
+            <div class="lbLevel" style="text-align:right">${e.date} · שלב ${e.level}</div>
+          </div>
+        </div>
+        <div style="text-align:left;min-width:52px"><div class="lbScore">${e.score.toLocaleString()}</div></div>
+      </div>`).join('');
+}
+
+// ══════════════════════════════════════════════
+//  CANVAS
+// ══════════════════════════════════════════════
+const canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d');
+function resize(){
+  const h=document.getElementById('hud'), mW=Math.min(window.innerWidth-16,480);
+  canvas.width=mW; canvas.height=Math.min(window.innerHeight-h.offsetHeight-32, mW*1.55);
+}
+resize(); window.addEventListener('resize',()=>{resize();initLevel();});
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let currentPlayer = null;  // { name, emoji, color } — the child who is playing
+let gState='start', score=0, lives=3, level=1, lovePct=0, paused=false, raf;
+const paddle={x:0,y:0,w:90,h:14};
+let balls=[], bricks=[], parts=[], drops=[], powerups={}, puTimers={};
+const tick={v:0};
+
+// ══════════════════════════════════════════════
+//  BALL
+// ══════════════════════════════════════════════
+function mkBall(x,y,vx,vy,r){
+  const spd=(4+level*0.25)*DIFF[cfg.diff];
+  return{x:x||canvas.width/2, y:y||canvas.height-100,
+    vx:vx||(Math.random()<0.5?1:-1)*spd*0.72, vy:vy||-spd,
+    r:r||9, trail:[], launched:false};
+}
+
+// ══════════════════════════════════════════════
+//  LAYOUTS
+// ══════════════════════════════════════════════
+function makeLayout(lvl){
+  const W=canvas.width,bw=Math.floor(W/9)-4,bh=22,mX=6,sY=68,g=4;
+  const lays=[
+    ()=>{ const r=[];for(let row=0;row<5;row++)for(let c=0;c<8;c++) r.push({x:mX+c*(bw+g),y:sY+row*(bh+6),w:bw,h:bh,type:'normal',hp:1}); return r; },
+    ()=>{ const r=[];[3,5,7,9,7,5,3].forEach((n,row)=>{const o=(9-n)/2;for(let c=0;c<n;c++) r.push({x:mX+(o+c)*(bw+g),y:sY+row*(bh+6),w:bw,h:bh,type:'normal',hp:1});}); return r; },
+    ()=>{ const r=[];[1,2,3,4,5,6,7,8].forEach((n,row)=>{const o=(8-n)/2;for(let c=0;c<n;c++) r.push({x:mX+(o+c)*(bw+g),y:sY+row*(bh+6),w:bw,h:bh,type:'normal',hp:1});}); return r; },
+    ()=>{ const r=[]; const p=[[0,0,1,0,0,1,0,0],[0,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,1,1,0,0,0]]; p.forEach((row,ri)=>row.forEach((v,c)=>{ if(v)r.push({x:mX+c*(bw+g),y:sY+ri*(bh+6),w:bw,h:bh,type:'normal',hp:1}); })); return r; },
+    ()=>{ const r=[]; const p=[[1,0,0,0,0,0,0,1],[0,1,0,0,0,0,1,0],[0,0,1,0,0,1,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,1,0,0,1,0,0],[0,1,0,0,0,0,1,0],[1,0,0,0,0,0,0,1]]; p.forEach((row,ri)=>row.forEach((v,c)=>{ if(v)r.push({x:mX+c*(bw+g),y:sY+ri*(bh+6),w:bw,h:bh,type:'normal',hp:1}); })); return r; }
+  ];
+  const list=lays[Math.min(lvl-1,lays.length-1)]();
+  const taken=new Set();
+  [...CHILDREN].sort(()=>Math.random()-0.5).forEach((ch,i)=>{
+    if(i>=list.length)return; let idx; do{idx=Math.floor(Math.random()*list.length);}while(taken.has(idx));
+    taken.add(idx); list[idx].type='child'; list[idx].child=ch; list[idx].glowP=Math.random()*Math.PI*2;
+  });
+  let mi; do{mi=Math.floor(Math.random()*list.length);}while(list[mi].type!=='normal');
+  list[mi].type='mission';
+  if(lvl>=3){let p=0; list.forEach(b=>{if(b.type==='normal'&&p<3&&Math.random()<0.12){b.type='powerup';b.pu=POWERUPS_DATA[Math.floor(Math.random()*POWERUPS_DATA.length)];p++;}});}
+  if(lvl>=4) list.forEach(b=>{if(b.type==='normal'&&Math.random()<0.25)b.hp=2;});
+  return list;
+}
+
+function initLevel(){
+  const W=canvas.width,H=canvas.height;
+  paddle.w=Math.min(90+level*4,130); paddle.x=W/2-paddle.w/2; paddle.y=H-40;
+  balls=[mkBall()]; balls[0].x=paddle.x+paddle.w/2; balls[0].y=paddle.y-12; balls[0].launched=false;
+  bricks=makeLayout(level); parts=[]; drops=[]; powerups={}; puTimers={};
+  updBrickProgress();
+}
+
+// ══════════════════════════════════════════════
+//  PARTICLES
+// ══════════════════════════════════════════════
+function spawnParts(x,y,color,n,type){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=1+Math.random()*(type==='star'?5:3);
+    parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-(type==='star'?2:0),
+      r:2+Math.random()*(type==='star'?4:3),color,life:1,decay:0.02+Math.random()*0.03,
+      emoji:type==='star'?(Math.random()<0.5?'⭐':'✨'):null});
+  }
+}
+
+// ══════════════════════════════════════════════
+//  DRAW HELPERS
+// ══════════════════════════════════════════════
+function drawPaddle(){
+  const{x,y,w,h}=paddle;
+  ctx.save(); ctx.shadowColor=skin.pg; ctx.shadowBlur=15;
+  const g=ctx.createLinearGradient(x,y,x,y+h);
+  g.addColorStop(0,skin.paddle[0]); g.addColorStop(0.5,skin.paddle[1]); g.addColorStop(1,skin.paddle[2]);
+  ctx.fillStyle=g; ctx.beginPath(); ctx.roundRect(x,y,w,h,7); ctx.fill();
+  ctx.shadowBlur=0; ctx.fillStyle='rgba(255,255,255,0.35)';
+  ctx.beginPath(); ctx.roundRect(x+4,y+2,w-8,h/2-2,4); ctx.fill(); ctx.restore();
+}
+
+function drawBall(ball){
+  const{x,y,r}=ball;
+  ball.trail.push({x,y,r}); if(ball.trail.length>10)ball.trail.shift();
+  ball.trail.forEach((t,i)=>{
+    ctx.save(); ctx.globalAlpha=(i/ball.trail.length)*0.22;
+    ctx.beginPath(); ctx.arc(t.x,t.y,t.r*(i/ball.trail.length),0,Math.PI*2);
+    ctx.fillStyle=skin.ball[1]; ctx.fill(); ctx.restore();
+  });
+  ctx.save(); ctx.shadowColor=skin.bg_ball; ctx.shadowBlur=18;
+  const g=ctx.createRadialGradient(x-r*0.3,y-r*0.3,r*0.1,x,y,r);
+  g.addColorStop(0,skin.ball[0]); g.addColorStop(0.4,skin.ball[1]); g.addColorStop(1,skin.ball[2]);
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur=0; ctx.fillStyle='rgba(255,255,255,0.7)';
+  ctx.beginPath(); ctx.arc(x-r*0.3,y-r*0.35,r*0.25,0,Math.PI*2); ctx.fill(); ctx.restore();
+}
+
+function drawBrick(b){
+  if(b.destroyed)return;
+  const{x,y,w,h,type}=b; ctx.save();
+  if(type==='normal'){
+    const g=ctx.createLinearGradient(x,y,x,y+h);
+    g.addColorStop(0,b.hp===2?'#cfd8dc':'#eceff1'); g.addColorStop(1,b.hp===2?'#90a4ae':'#b0bec5');
+    ctx.fillStyle=g; ctx.shadowColor='rgba(0,0,0,0.25)'; ctx.shadowBlur=4; ctx.shadowOffsetY=2;
+    ctx.beginPath(); ctx.roundRect(x,y,w,h,5); ctx.fill();
+    if(b.hp===2){ ctx.shadowBlur=0; ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(x+4,y+h/2); ctx.lineTo(x+w-4,y+h/2); ctx.stroke(); }
+  } else if(type==='child'){
+    const gl=Math.sin(tick.v*0.05+b.glowP)*0.5+0.5;
+    ctx.shadowColor=skin.star[1]; ctx.shadowBlur=6+gl*12;
+    const g=ctx.createLinearGradient(x,y,x,y+h);
+    g.addColorStop(0,skin.star[0]); g.addColorStop(0.5,skin.star[1]); g.addColorStop(1,skin.star[2]);
+    ctx.fillStyle=g; ctx.beginPath(); ctx.roundRect(x,y,w,h,6); ctx.fill();
+    ctx.shadowBlur=0;
+    const sX=((tick.v*2)%(w+30))-15, sg=ctx.createLinearGradient(x+sX-10,y,x+sX+10,y);
+    sg.addColorStop(0,'rgba(255,255,255,0)'); sg.addColorStop(0.5,'rgba(255,255,255,0.35)'); sg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=sg; ctx.beginPath(); ctx.roundRect(x,y,w,h,6); ctx.fill();
+    ctx.font=`bold ${h-2}px Heebo,sans-serif`; ctx.fillStyle='rgba(255,255,255,0.82)';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('?',x+w/2,y+h/2);
+  } else if(type==='mission'){
+    ctx.shadowColor='#00e676'; ctx.shadowBlur=10;
+    const g=ctx.createLinearGradient(x,y,x,y+h); g.addColorStop(0,'#b9f6ca'); g.addColorStop(1,'#00c853');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.roundRect(x,y,w,h,6); ctx.fill();
+    ctx.shadowBlur=0; ctx.font=`bold ${h-2}px Heebo,sans-serif`;
+    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('!',x+w/2,y+h/2);
+  } else if(type==='powerup'){
+    ctx.shadowColor=b.pu.color; ctx.shadowBlur=12;
+    const g=ctx.createLinearGradient(x,y,x,y+h); g.addColorStop(0,'#fff'); g.addColorStop(1,b.pu.color);
+    ctx.fillStyle=g; ctx.beginPath(); ctx.roundRect(x,y,w,h,6); ctx.fill();
+    ctx.shadowBlur=0; ctx.font=`${h-4}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(b.pu.emoji,x+w/2,y+h/2);
+  }
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════
+//  DROPS & POWERUPS
+// ══════════════════════════════════════════════
+function updateDrops(){
+  drops=drops.filter(d=>d.y<canvas.height+30);
+  drops.forEach(d=>{
+    d.y+=3;
+    if(d.y+15>=paddle.y&&d.y-15<=paddle.y+paddle.h&&d.x>=paddle.x&&d.x<=paddle.x+paddle.w){
+      activatePU(d.pu); SFX.powerup(); showFlash(d.x,d.y,'✨ '+d.pu.label+'!'); d.y=canvas.height+100;
+    }
+  });
+}
+function drawDrops(){
+  drops.forEach(d=>{
+    ctx.save(); ctx.shadowColor=d.color; ctx.shadowBlur=14;
+    ctx.font='24px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(d.pu.emoji,d.x,d.y);
+    ctx.restore();
+  });
+}
+function activatePU(pu){
+  if(puTimers[pu.type])clearTimeout(puTimers[pu.type]);
+  powerups[pu.type]=true;
+  if(pu.type==='multi'){const b=balls[0]; balls.push(mkBall(b.x,b.y,-b.vx,b.vy)); balls[balls.length-1].launched=true;}
+  if(pu.type==='big')  balls.forEach(b=>b.r=16);
+  if(pu.type==='fast') balls.forEach(b=>{b.vx*=1.4;b.vy*=1.4;});
+  puTimers[pu.type]=setTimeout(()=>{
+    powerups[pu.type]=false;
+    if(pu.type==='big') balls.forEach(b=>b.r=9);
+    if(pu.type==='fast') balls.forEach(b=>{
+      const spd=Math.hypot(b.vx,b.vy),base=(4+level*0.25)*DIFF[cfg.diff],f=base/spd; b.vx*=f; b.vy*=f;
+    });
+  },8000);
+}
+
+// ══════════════════════════════════════════════
+//  COLLISION
+// ══════════════════════════════════════════════
+function collide(ball,brick){
+  const{x:bx,y:by,w:bw,h:bh}=brick;
+  if(ball.x+ball.r<bx||ball.x-ball.r>bx+bw||ball.y+ball.r<by||ball.y-ball.r>by+bh) return;
+  const oL=ball.x+ball.r-bx,oR=bx+bw-(ball.x-ball.r),oT=ball.y+ball.r-by,oB=by+bh-(ball.y-ball.r);
+  if(!powerups.through){
+    if(Math.min(oL,oR)<Math.min(oT,oB)){ball.vx*=-1; ball.x+=ball.vx>0?oL:-oR;}
+    else{ball.vy*=-1; ball.y+=ball.vy>0?oT:-oB;}
+  }
+  brick.hp--;
+  if(brick.hp<=0){brick.destroyed=true; onDestroy(brick);}
+  else spawnParts(bx+bw/2,by+bh/2,'#b0bec5',5);
+}
+
+function onDestroy(b){
+  const cx=b.x+b.w/2,cy=b.y+b.h/2;
+  if(b.type==='normal'){
+    spawnParts(cx,cy,'#b0bec5',10); SFX.brickNorm(); score+=10*level; updScore();
+  } else if(b.type==='child'){
+    spawnParts(cx,cy,skin.star[1],30,'star'); SFX.brickChild();
+    score+=100*level; updScore(); updLove(15); launchHearts(cx,cy); showPraise(b.child);
+  } else if(b.type==='mission'){
+    spawnParts(cx,cy,'#00e676',16); SFX.brickMiss();
+    score+=50*level; updScore(); updLove(10); showMission();
+  } else if(b.type==='powerup'){
+    score+=30*level; updScore();
+    drops.push({x:cx,y:cy,pu:b.pu,color:b.pu.color});
+  }
+  updBrickProgress();
+  if(!bricks.some(br=>!br.destroyed&&br.type!=='normal')) setTimeout(doLevelComplete,500);
+}
+
+// ══════════════════════════════════════════════
+//  GAME LOOP
+// ══════════════════════════════════════════════
+const starsBg=Array.from({length:60},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.5+0.3,tw:Math.random()*Math.PI*2}));
+
+function loop(){
+  raf=requestAnimationFrame(loop);
+  if(gState!=='playing'||paused) return;
+  tick.v++;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const bg=ctx.createLinearGradient(0,0,0,canvas.height);
+  bg.addColorStop(0,skin.bg[0]); bg.addColorStop(1,skin.bg[2]);
+  ctx.fillStyle=bg; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Stars
+  starsBg.forEach(s=>{ ctx.save(); ctx.globalAlpha=0.3+Math.sin(tick.v*0.02+s.tw)*0.2;
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s.x*canvas.width,s.y*canvas.height,s.r,0,Math.PI*2); ctx.fill(); ctx.restore(); });
+
+  bricks.forEach(b=>{ if(!b.destroyed)drawBrick(b); });
+  updateDrops(); drawDrops();
+
+  balls=balls.filter(b=>b.y<canvas.height+20);
+  balls.forEach(ball=>{
+    if(!ball.launched){ ball.x=paddle.x+paddle.w/2; ball.y=paddle.y-ball.r-2; drawBall(ball); return; }
+    ball.x+=ball.vx; ball.y+=ball.vy;
+    if(ball.x-ball.r<0){ ball.x=ball.r; ball.vx=Math.abs(ball.vx); SFX.wall(); }
+    if(ball.x+ball.r>canvas.width){ ball.x=canvas.width-ball.r; ball.vx=-Math.abs(ball.vx); SFX.wall(); }
+    if(ball.y-ball.r<0){ ball.y=ball.r; ball.vy=Math.abs(ball.vy); SFX.wall(); }
+    if(ball.vy>0&&ball.x>paddle.x&&ball.x<paddle.x+paddle.w&&ball.y+ball.r>=paddle.y&&ball.y-ball.r<=paddle.y+paddle.h){
+      ball.y=paddle.y-ball.r;
+      const hit=(ball.x-paddle.x)/paddle.w,angle=(hit-0.5)*2.5,spd=Math.hypot(ball.vx,ball.vy);
+      ball.vx=spd*Math.sin(angle); ball.vy=-Math.abs(spd*Math.cos(angle));
+      spawnParts(ball.x,paddle.y,skin.ball[1],8); SFX.paddle();
+    }
+    bricks.forEach(b=>{ if(!b.destroyed)collide(ball,b); });
+    drawBall(ball);
+  });
+
+  if(balls.length===0||(balls.filter(b=>b.launched).length===0&&balls.every(b=>b.y>canvas.height))){
+    balls=[]; loseLife(); return;
+  }
+  drawPaddle();
+  parts=parts.filter(p=>p.life>0);
+  parts.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=0.1; p.life-=p.decay; p.r*=0.98; });
+  parts.forEach(p=>{ ctx.save(); ctx.globalAlpha=p.life;
+    if(p.emoji){ ctx.font=`${p.r*3}px serif`; ctx.fillText(p.emoji,p.x-p.r,p.y+p.r); }
+    else{ ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(0.1,p.r),0,Math.PI*2); ctx.fillStyle=p.color; ctx.fill(); }
+    ctx.restore(); });
+}
+
+// ══════════════════════════════════════════════
+//  LIFE / SCORE / LOVE
+// ══════════════════════════════════════════════
+function loseLife(){ SFX.loseLife(); lives--; updLives();
+  if(lives<=0){gameOver();return;}
+  balls=[mkBall()]; balls[0].launched=false; balls[0].x=paddle.x+paddle.w/2; balls[0].y=paddle.y-12; }
+function updLives(){ const el=document.getElementById('livesDisplay'); el.innerHTML='';
+  for(let i=0;i<lives;i++) el.innerHTML+='<span class="lifeHeart">❤️</span>';
+  for(let i=lives;i<3;i++) el.innerHTML+='<span class="lifeHeart" style="opacity:0.2">🖤</span>'; }
+function updScore(){ document.getElementById('scoreDisplay').textContent=score.toLocaleString(); }
+function updLove(n){ lovePct=Math.min(100,lovePct+n); document.getElementById('loveMeterFill').style.width=lovePct+'%';
+  if(lovePct>=100){lovePct=0;celebrateLove();} }
+function updBrickProgress(){
+  const total = bricks.length;
+  const left  = bricks.filter(b => !b.destroyed).length;
+  const pct   = total > 0 ? (left / total) * 100 : 0;
+  document.getElementById('brickProgressFill').style.width = pct + '%';
+  document.getElementById('brickProgressLabel').textContent =
+    left === 0 ? '🎉 כל הלבנות נשברו!' :
+    left === 1 ? '🧱 לבנה אחת נותרה!' :
+    '🧱 ' + left + ' / ' + total + ' לבנות נותרו';
+}
+
+function celebrateLove(){ SFX.loveFull();
+  for(let i=0;i<15;i++) setTimeout(()=>launchHearts(Math.random()*canvas.width,Math.random()*canvas.height/2),i*100);
+  showFlash(canvas.width/2,canvas.height/2,'💖 אהבת האחים גדלה! 💖'); }
+
+// ══════════════════════════════════════════════
+//  POPUPS
+// ══════════════════════════════════════════════
+function openPraise(){ document.getElementById('praiseLoading').style.display='block'; document.getElementById('praiseContent').classList.add('hidden'); document.getElementById('praisePopup').classList.remove('hidden'); }
+function revealPraise(name,emoji,text){ document.getElementById('pcEmoji').textContent=emoji; document.getElementById('pcName').textContent=name+' '+emoji; document.getElementById('pcText').textContent=text;
+  document.getElementById('praiseLoading').style.display='none'; document.getElementById('praiseContent').classList.remove('hidden'); }
+function getPraiseText(child) {
+  const praises = PRAISES[child.name] || [];
+  // If the current player hit their own brick — special personal message
+  if (currentPlayer && child.name === currentPlayer.name) {
+    const selfPraises = [
+      'וואו ' + child.name + ', שברת את הלבנה שלך! את/ה מדהים/ה! 🌟',
+      child.name + ', כמה כיף לראות אותך משחק! אתה/את הכי! 💖',
+      'יש! ' + child.name + ' — המשפחה כל כך גאה בך! ✨',
+      child.name + ', אתה/את הכוכב הגדול של המשפחה! 🌟',
+    ];
+    return selfPraises[Math.floor(Math.random()*selfPraises.length)];
+  }
+  // Player hit another sibling's brick — message from current player TO that sibling
+  if (currentPlayer) {
+    const fromPraises = [
+      (currentPlayer.name) + ' אומר/ת: ' + child.name + ', אני כל כך אוהב/ת אותך! 💝',
+      (currentPlayer.name) + ' רוצה שתדע/י: ' + child.name + ' — אתה/את מיוחד/ת לי! 🌸',
+      'מסר מ' + (currentPlayer.name) + ': ' + child.name + ', אני שמח/ה שאתה/את האח/אחות שלי! 💫',
+      (currentPlayer.name) + ' חושב/ת ש' + child.name + ' הכי טוב/ה! ' + child.emoji,
+    ];
+    return fromPraises[Math.floor(Math.random()*fromPraises.length)];
+  }
+  // No player selected — generic praise
+  return praises[Math.floor(Math.random()*praises.length)];
+}
+
+function showPraise(child){ paused=true; openPraise(); revealPraise(child.name, child.emoji, getPraiseText(child)); }
+function showMission(){ paused=true; openPraise(); revealPraise('🎯 משימה!','✅',MISSIONS[Math.floor(Math.random()*MISSIONS.length)]); }
+document.getElementById('praiseContinueBtn').addEventListener('click',()=>{
+  document.getElementById('praisePopup').classList.add('hidden'); document.getElementById('praiseContent').classList.add('hidden');
+  document.getElementById('praiseLoading').style.display='block'; paused=false; });
+
+// ══════════════════════════════════════════════
+//  HEARTS / FLASH
+// ══════════════════════════════════════════════
+function launchHearts(x,y){ ['💖','💝','✨','⭐','💫'].forEach((e,i)=>{
+  const el=document.createElement('div'); el.className='floatingHeart'; el.textContent=e;
+  el.style.left=(x-20+Math.random()*40)+'px'; el.style.top=y+'px'; el.style.animationDelay=(Math.random()*0.5)+'s';
+  document.body.appendChild(el); setTimeout(()=>el.remove(),2500); }); }
+function showFlash(x,y,text){ const el=document.createElement('div'); el.className='scoreFlash'; el.textContent=text;
+  el.style.left=x+'px'; el.style.top=y+'px'; document.body.appendChild(el); setTimeout(()=>el.remove(),1000); }
+
+// ══════════════════════════════════════════════
+//  LEVEL COMPLETE / GAME OVER
+// ══════════════════════════════════════════════
+function doLevelComplete(){ SFX.levelUp(); gState='levelcomplete';
+  document.getElementById('lcTitle').textContent=`שלב ${level} — כל הכבוד! 🎉`;
+  document.getElementById('lcMsg').textContent=`ניקוד: ${score.toLocaleString()} | ממשיכים לשלב ${level+1}`;
+  document.getElementById('lcStars').textContent=level>=3?'⭐⭐⭐':level===2?'⭐⭐':'⭐';
+  document.getElementById('levelComplete').classList.remove('hidden'); }
+document.getElementById('nextLvlBtn').addEventListener('click',()=>{
+  document.getElementById('levelComplete').classList.add('hidden'); level++;
+  document.getElementById('levelDisplay').textContent=level; initLevel(); gState='playing'; });
+
+function gameOver(){ gState='gameover'; saveLB(score,level);
+  document.getElementById('finalScore').textContent='ניקוד: '+score.toLocaleString();
+  document.getElementById('gameOverScreen').classList.remove('hidden'); stopMusic(); }
+
+function resetGame(){ score=0;lives=3;level=1;lovePct=0; updScore(); updLives();
+  document.getElementById('levelDisplay').textContent=1; document.getElementById('loveMeterFill').style.width='0%'; initLevel(); }
+
+document.getElementById('restartBtn').addEventListener('click',()=>{
+  document.getElementById('gameOverScreen').classList.add('hidden'); resetGame(); gState='playing'; startMusic(); });
+document.getElementById('goMenuBtn').addEventListener('click',()=>{
+  document.getElementById('gameOverScreen').classList.add('hidden'); gState='start';
+  showPlayerSelect(); stopMusic(); });
+
+// ══════════════════════════════════════════════
+//  SETTINGS
+// ══════════════════════════════════════════════
+function openSettings(){ paused=true; document.getElementById('settingsScreen').classList.remove('hidden'); }
+function closeSettings(){ document.getElementById('settingsScreen').classList.add('hidden'); if(gState==='playing')paused=false; }
+document.getElementById('settingsHudBtn').addEventListener('click',openSettings);
+document.getElementById('openSetBtn').addEventListener('click',openSettings);
+document.getElementById('closeSetBtn').addEventListener('click',()=>{
+  cfg.sfx=document.getElementById('sfxToggle').checked; cfg.music=document.getElementById('musicToggle').checked;
+  saveCfg(); buildSkinGrid(); closeSettings(); });
+document.getElementById('sfxToggle').addEventListener('change',e=>cfg.sfx=e.target.checked);
+document.getElementById('musicToggle').addEventListener('change',e=>{ cfg.music=e.target.checked; cfg.music?startMusic():stopMusic(); });
+document.querySelectorAll('.diffBtn').forEach(b=>b.addEventListener('click',()=>{
+  cfg.diff=b.dataset.d; document.querySelectorAll('.diffBtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); }));
+
+// ══════════════════════════════════════════════
+//  LEADERBOARD
+// ══════════════════════════════════════════════
+function openLB(){ renderLB(score); document.getElementById('leaderboardScreen').classList.remove('hidden'); if(gState==='playing')paused=true; }
+function closeLB(){ document.getElementById('leaderboardScreen').classList.add('hidden'); if(gState==='playing')paused=false; }
+document.getElementById('openLbBtn').addEventListener('click',openLB);
+document.getElementById('lbHudBtn').addEventListener('click',openLB);
+document.getElementById('closeLbBtn').addEventListener('click',closeLB);
+
+// ══════════════════════════════════════════════
+//  MUTE TOGGLE
+// ══════════════════════════════════════════════
+document.getElementById('muteBtn').addEventListener('click',()=>{
+  cfg.sfx=!cfg.sfx; cfg.music=!cfg.music;
+  document.getElementById('muteBtn').textContent=cfg.sfx?'🔊':'🔇';
+  cfg.music?startMusic():stopMusic(); saveCfg(); });
+
+// ══════════════════════════════════════════════
+//  PLAYER SELECT SCREEN
+// ══════════════════════════════════════════════
+function buildPlayerGrid() {
+  const grid = document.getElementById('playerGrid');
+  grid.innerHTML = '';
+  CHILDREN.forEach(child => {
+    const card = document.createElement('div');
+    card.className = 'playerCard';
+    card.dataset.name = child.name;
+    card.innerHTML = `
+      <span class="pCheck">✅</span>
+      <span class="pEmoji">${child.emoji}</span>
+      <span class="pName">${child.name}</span>`;
+    card.style.borderColor = 'rgba(255,255,255,0.12)';
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.playerCard').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      currentPlayer = child;
+      const btn = document.getElementById('confirmPlayerBtn');
+      btn.disabled = false; btn.style.opacity = '1';
+    });
+    grid.appendChild(card);
+  });
+}
+
+function showPlayerSelect() {
+  document.getElementById('playerSelectScreen').classList.remove('hidden');
+  document.getElementById('startScreen').classList.add('hidden');
+  buildPlayerGrid();
+}
+
+function applyPlayerToBadge() {
+  const badge = document.getElementById('playerBadge');
+  if (currentPlayer) {
+    document.getElementById('badgeEmoji').textContent = currentPlayer.emoji;
+    document.getElementById('badgeName').textContent = currentPlayer.name;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+document.getElementById('confirmPlayerBtn').addEventListener('click', () => {
+  document.getElementById('playerSelectScreen').classList.add('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+  applyPlayerToBadge();
+});
+
+
+// ══════════════════════════════════════════════
+//  START
+// ══════════════════════════════════════════════
+document.getElementById('startBtn').addEventListener('click',()=>{
+  try{ac();}catch{}
+  document.getElementById('startScreen').classList.add('hidden');
+  resetGame(); gState='playing'; loop(); startMusic(); });
+
+// ══════════════════════════════════════════════
+//  INPUT
+// ══════════════════════════════════════════════
+const curDot=document.getElementById('cursorDot');
+canvas.addEventListener('mousemove',e=>{ const r=canvas.getBoundingClientRect();
+  paddle.x=Math.max(0,Math.min(canvas.width-paddle.w,e.clientX-r.left-paddle.w/2));
+  curDot.style.display='block'; curDot.style.left=e.clientX+'px'; curDot.style.top=e.clientY+'px'; });
+canvas.addEventListener('click',()=>{ if(gState==='playing'&&!paused) balls.forEach(b=>{if(!b.launched)b.launched=true;}); });
+canvas.addEventListener('touchmove',e=>{ e.preventDefault(); const r=canvas.getBoundingClientRect();
+  paddle.x=Math.max(0,Math.min(canvas.width-paddle.w,e.touches[0].clientX-r.left-paddle.w/2)); },{passive:false});
+canvas.addEventListener('touchstart',e=>{ e.preventDefault(); const r=canvas.getBoundingClientRect();
+  paddle.x=Math.max(0,Math.min(canvas.width-paddle.w,e.touches[0].clientX-r.left-paddle.w/2));
+  if(gState==='playing'&&!paused) balls.forEach(b=>{if(!b.launched)b.launched=true;}); },{passive:false});
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault(); if(gState==='playing'&&!paused) balls.forEach(b=>{if(!b.launched)b.launched=true;});}
+  if(e.code==='Escape'){
+    if(!document.getElementById('settingsScreen').classList.contains('hidden'))closeSettings();
+    else if(!document.getElementById('leaderboardScreen').classList.contains('hidden'))closeLB();}
+});
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+loadCfg(); buildSkinGrid(); updLives();
+showPlayerSelect();  // Show player-select before start screen
+requestAnimationFrame(function idle(){tick.v++; if(gState==='start')requestAnimationFrame(idle);});
+</script>
+</body>
+</html>
