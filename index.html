@@ -531,7 +531,7 @@ resize(); window.addEventListener('resize',()=>{resize();initLevel();});
 //  STATE
 // ══════════════════════════════════════════════
 let currentPlayer = null;
-let gState='start', score=0, lives=3, level=1, lovePct=0, paused=false, raf;
+let gState='start', score=0, lives=3, level=1, lovePct=0, paused=false, popupActive=false, raf;
 const paddle={x:0,y:0,w:90,h:14};
 let balls=[], bricks=[], parts=[], drops=[], powerups={}, puTimers={};
 const tick={v:0};
@@ -826,7 +826,7 @@ function celebrateLove(){ SFX.loveFull();
 // ══════════════════════════════════════════════
 //  POPUPS
 // ══════════════════════════════════════════════
-function openPraise(){ document.getElementById('praiseLoading').style.display='block'; document.getElementById('praiseContent').classList.add('hidden'); document.getElementById('praisePopup').classList.remove('hidden'); }
+function openPraise(){ document.getElementById('praiseLoading').style.display='block'; document.getElementById('praiseContent').classList.add('hidden'); document.getElementById('praisePopup').classList.remove('hidden'); try{if(AC)AC.suspend();}catch{} }
 function revealPraise(name,emoji,text){ document.getElementById('pcEmoji').textContent=emoji; document.getElementById('pcName').textContent=name+' '+emoji; document.getElementById('pcText').textContent=text;
   document.getElementById('praiseLoading').style.display='none'; document.getElementById('praiseContent').classList.remove('hidden'); }
 
@@ -858,6 +858,8 @@ function getPraiseText(child) {
 }
 
 async function showPraise(child) {
+  if(popupActive) return;
+  popupActive = true;
   paused = true;
   openPraise();
   try {
@@ -881,9 +883,12 @@ function openTorah(){
   document.getElementById('torahLoading').style.display='block';
   document.getElementById('torahContent').classList.add('hidden');
   document.getElementById('torahPopup').classList.remove('hidden');
+  try{if(AC)AC.suspend();}catch{}
 }
 
 async function showTorah() {
+  if(popupActive) return;
+  popupActive = true;
   paused = true;
   openTorah();
   const controller = new AbortController();
@@ -910,18 +915,19 @@ async function showTorah() {
   }
 }
 
-function showMission(){ paused=true; openPraise(); revealPraise('🎯 משימה!','✅',MISSIONS[Math.floor(Math.random()*MISSIONS.length)]); }
+function showMission(){ if(popupActive)return; popupActive=true; paused=true; openPraise(); revealPraise('🎯 משימה!','✅',MISSIONS[Math.floor(Math.random()*MISSIONS.length)]); }
 
 document.getElementById('torahContinueBtn').addEventListener('click',()=>{
   document.getElementById('torahPopup').classList.add('hidden');
   document.getElementById('torahContent').classList.add('hidden');
   document.getElementById('torahLoading').style.display='block';
-  paused=false;
+  paused=false; popupActive=false; try{if(AC&&cfg.music)AC.resume();}catch{}
 });
 
 document.getElementById('praiseContinueBtn').addEventListener('click',()=>{
   document.getElementById('praisePopup').classList.add('hidden'); document.getElementById('praiseContent').classList.add('hidden');
-  document.getElementById('praiseLoading').style.display='block'; paused=false; });
+  document.getElementById('praiseLoading').style.display='block'; paused=false; popupActive=false; try{if(AC&&cfg.music)AC.resume();}catch{}
+});
 
 // ══════════════════════════════════════════════
 //  HEARTS / FLASH
