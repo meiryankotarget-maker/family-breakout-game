@@ -61,6 +61,27 @@
   .pcText { font-size:17px; font-weight:700; color:#333; line-height:1.5; margin-bottom:14px; position:relative; }
   .pcStar { color:#ffd700; font-size:18px; letter-spacing:4px; position:relative; }
 
+  /* ── TORAH POPUP ── */
+  #torahPopup { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:200; background:rgba(5,10,30,0.85); backdrop-filter:blur(8px); direction:rtl; }
+  #torahPopup.hidden { display:none; }
+  .torahCard {
+    background: linear-gradient(145deg,#e8f4ff,#f0f8ff);
+    border: 3px solid #00bfff;
+    border-radius: 28px; padding: 28px 22px;
+    max-width: 340px; width: 88%; text-align: center;
+    box-shadow: 0 0 40px rgba(0,191,255,0.4), 0 20px 60px rgba(0,0,0,0.5);
+    animation: cardPop 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+    position: relative; overflow: hidden;
+  }
+  .torahCard::before {
+    content:''; position:absolute; inset:0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(0,191,255,0.15), transparent 70%);
+  }
+  .torahTitle { font-size:20px; font-weight:900; color:#0077b6; margin-bottom:8px; position:relative; }
+  .torahEmoji { font-size:44px; margin:8px 0; position:relative; }
+  .torahText  { font-size:16px; font-weight:700; color:#1a1a2e; line-height:1.6; margin-bottom:14px; position:relative; }
+  .torahStar  { color:#00bfff; font-size:18px; letter-spacing:4px; position:relative; }
+
   /* ── SETTINGS ── */
   .sRow { display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:11px 14px; margin-bottom:9px; position:relative; z-index:2; }
   .sLabel { color:#fff; font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px; }
@@ -143,7 +164,6 @@
   .playerCard .pName  { font-size: 11px; font-weight: 800; color: #fff; line-height:1.2; }
   .playerCard .pCheck { position:absolute; top:4px; right:5px; font-size:13px; display:none; }
   .playerCard.selected .pCheck { display:block; }
-  /* Shimmer on selected */
   .playerCard.selected::after {
     content:''; position:absolute; inset:0;
     background: linear-gradient(120deg,rgba(255,255,255,0) 30%,rgba(255,255,255,0.18) 50%,rgba(255,255,255,0) 70%);
@@ -151,7 +171,6 @@
   }
   @keyframes shimmerCard { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
 
-  /* HUD player badge */
   #playerBadge { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:800; color:#ffd700; }
   #playerBadge .badgeEmoji { font-size:16px; }
 </style>
@@ -229,6 +248,25 @@
   </div>
 </div>
 
+<!-- TORAH -->
+<div id="torahPopup" class="hidden">
+  <div class="torahCard">
+    <div id="torahLoading">
+      <div style="font-size:34px;margin-bottom:10px;animation:bounce 0.8s ease infinite alternate">✡️</div>
+      <div style="font-size:13px;font-weight:700;color:#0077b6;margin-bottom:8px">מחפש פנינת חוכמה...</div>
+      <div style="font-size:20px;color:#00bfff;letter-spacing:6px">● ● ●</div>
+    </div>
+    <div id="torahContent" class="hidden">
+      <div class="torahStar">✦ ✦ ✦</div>
+      <div class="torahEmoji">✡️</div>
+      <div class="torahTitle">💙 הידעת?</div>
+      <div class="torahText" id="torahText">טקסט</div>
+      <div class="torahStar">✦ ✦ ✦</div>
+      <button class="btn" id="torahContinueBtn" style="margin-top:14px;background:linear-gradient(135deg,#00bfff,#0077b6);color:#fff">המשך 💙</button>
+    </div>
+  </div>
+</div>
+
 <!-- SETTINGS -->
 <div id="settingsScreen" class="screen hidden">
   <div class="screenCard">
@@ -294,30 +332,39 @@
 <script>
 'use strict';
 
-// ══════════════════════════════════════════════
-//  DATA
-// ══════════════════════════════════════════════
 const CHILDREN = [
-  {name:'תמר',       emoji:'🌸',color:'#ff6b9d'},
-  {name:'חיים',      emoji:'⚡',color:'#4fc3f7'},
-  {name:'נחמי',      emoji:'🌺',color:'#ba68c8'},
-  {name:'יהודית',   emoji:'🦋',color:'#f06292'},
-  {name:'אלישבע',  emoji:'🌟',color:'#ffb74d'},
-  {name:'מירי',      emoji:'🌈',color:'#81c784'},
-  {name:'שרי',       emoji:'💎',color:'#64b5f6'},
-  {name:'ישראל דוד',emoji:'🦁',color:'#ffd54f'}
+  {name:'תמר',        emoji:'🌸',color:'#ff6b9d',g:'נ'},
+  {name:'חיים',       emoji:'⚡',color:'#4fc3f7',g:'ז'},
+  {name:'נחמי',       emoji:'🌺',color:'#ba68c8',g:'נ'},
+  {name:'יהודית',    emoji:'🦋',color:'#f06292',g:'נ'},
+  {name:'אלישבע',   emoji:'🌟',color:'#ffb74d',g:'נ'},
+  {name:'מירי',       emoji:'🌈',color:'#81c784',g:'נ'},
+  {name:'שרי',        emoji:'💎',color:'#64b5f6',g:'נ'},
+  {name:'ישראל דוד', emoji:'🦁',color:'#ffd54f',g:'ז'}
 ];
 
 const PRAISES = {
-  'תמר':      ['תמר, את כל כך חמודה ואוהבת! 💖','מה טוב שיש לנו את תמר במשפחה!','תמר תמיד מביאה שמחה לכולם! 🌸','החיוך שלך מאיר את הבית כולו!'],
-  'חיים':     ['חיים, אתה חזק ואמיץ! ⚡','כמה כיף שיש לנו את חיים במשפחה!','חיים תמיד עוזר לכולם בשמחה! 💪','אתה אח מדהים ומיוחד!'],
-  'נחמי':     ['נחמי, את טובת לב ומקסימה! 🌺','כמה שנחמי חכמה ונחמדה!','נחמי תמיד יודעת לשמח את כולם!','המשפחה כל כך אוהבת אותך! 💜'],
-  'יהודית':  ['יהודית, את כל כך מיוחדת! 🦋','כמה שיהודית עושה את כולם מאושרים!','יש לך לב גדול של זהב!','כמה שאנחנו אוהבים את יהודית!'],
-  'אלישבע': ['אלישבע, את מבריקה כמו כוכב! 🌟','כמה שאלישבע חכמה ויצירתית!','אלישבע תמיד עושה דברים מדהימים!','את הגאווה של כולנו! ✨'],
-  'מירי':     ['מירי, את שמחה כמו קשת! 🌈','כמה שמירי נחמדה וטובת לב!','מירי תמיד מביאה צבע לחיים!','המשפחה כל כך אוהבת אותך! 💚'],
-  'שרי':      ['שרי, את יקרה כמו יהלום! 💎','כמה שאנחנו אוהבים את שרי!','שרי תמיד עושה הכל בחן ובחיוך!','יש לך נשמה יפה כל כך! 💙'],
-  'ישראל דוד':['ישראל דוד, אתה גיבור אמיתי! 🦁','כמה שישראל דוד חזק ואמיץ!','ישראל דוד תמיד שם לכולם! 💛','אתה האח הכי טוב!']
+  'תמר':      ['תמר, את דוגמה מדהימה לאחיות הקטנות שלך.','הבגרות והתבונה של תמר הן נכס לכל המשפחה.','איזה כיף שיש אחות גדולה שאפשר תמיד להתייעץ איתה.'],
+  'חיים':     ['חיים, ההתמדה שלך בלימוד ובצדיקות מעוררת השראה.','איזה לב רחב יש לחיים, תמיד חושב על אחרים.','חיים הוא אח שפשוט כיף ורגוע להיות לידו.'],
+  'נחמי':     ['נחמי תמיד מרגישה כשמישהו צריך מילה טובה.','העדינות והאצילות של נחמי מוסיפות המון אור לבית.','איזו אלופה נחמי בעזרה ובארגון מכל הלב!'],
+  'יהודית':  ['החיוך של יהודית יכול להמיס כל לב.','יהודית, את אלופה בלהכניס אנרגיות טובות לכולם.','כמה יופי יש בדרך שבה יהודית דואגת לאחים הקטנים.'],
+  'אלישבע': ['אלישבע, את פשוט צדיקה בדרך שבה את יודעת לוותר.','כמה חן ונועם יש בדיבור של אלישבע המתוקה.','כל הכבוד לאלישבע על ההשקעה והרצון הטוב!'],
+  'מירי':     ['מירי, את פשוט מלכה בפרגון ובחברות טובה.','איזה כיף לראות את מירי משחקת בכזאת שמחה.','מירי היא ילדה שפשוט אי אפשר להפסיק לחבק!'],
+  'שרי':      ['שרי שלנו, את הפרח הכי יפה בגינה של משפחת ינקו.','איזה מותק של ילדה שרי, תמיד מחלקת נשיקות וחיוכים.','שרי צדיקה קטנה, איך היא אוהבת לשמוע סיפורים על צדיקים!'],
+  'ישראל דוד':['ישראל דוד, אתה התינוק הצדיק שמאחד את כולנו.','איזה נחת זה לראות את ישראל דוד גדל בתוך כל האהבה הזאת.','ישראל דוד הוא המתנה הכי מתוקה שקיבלנו מהשם.']
 };
+
+const TORAH_FALLBACKS = [
+  'הידעת? "איזהו עשיר? השמח בחלקו" – מי ששמח במה שיש לו, הוא העשיר האמיתי!',
+  'הידעת? "אמור מעט ועשה הרבה" – צדיקים מבטיחים מעט, אבל עושים המון בשביל אחרים.',
+  'הידעת? "הוי מקבל את כל האדם בסבר פנים יפות" – חיוך קטן לכל אחד זה חסד ענק.',
+  'הידעת? "אל תסתכל בקנקן אלא במה שיש בו" – מה שחשוב זה הלב הטוב שבפנים, לא המראה מבחוץ.',
+  'הידעת? "ואהבת לרעך כמוך" – התורה מלמדת אותנו להתייחס לכל אחד כמו שאנחנו רוצים שיתייחסו אלינו.',
+  'הידעת? "כל ישראל ערבים זה בזה" – כולנו משפחה אחת גדולה ודואגים זה לזה.',
+  'הידעת? "והדרת פני זקן" – לכבד סבא, סבתא ואנשים מבוגרים זו מצווה יקרה מהתורה.',
+  'הידעת? "אם אין אני לי, מי לי?" – לכל אחד מאיתנו יש כוח מיוחד לעשות דברים טובים בעצמו.',
+  'הידעת? "סור מרע ועשה טוב" – הדרך הכי טובה לנצח את היצר היא פשוט להוסיף עוד מעשים טובים.',
+];
 
 const MISSIONS = [
   '🤗 תן חיבוק חם לאח או אחות עכשיו!','😊 אמור מחמאה אמיתית לאח/אחות!',
@@ -403,7 +450,7 @@ function saveCfg() {
 }
 
 // ══════════════════════════════════════════════
-//  AUDIO  (Web Audio API — zero external files)
+//  AUDIO
 // ══════════════════════════════════════════════
 let AC = null;
 function ac() { if(!AC) AC=new(window.AudioContext||window.webkitAudioContext)(); return AC; }
@@ -483,7 +530,7 @@ resize(); window.addEventListener('resize',()=>{resize();initLevel();});
 // ══════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════
-let currentPlayer = null;  // { name, emoji, color } — the child who is playing
+let currentPlayer = null;
 let gState='start', score=0, lives=3, level=1, lovePct=0, paused=false, raf;
 const paddle={x:0,y:0,w:90,h:14};
 let balls=[], bricks=[], parts=[], drops=[], powerups={}, puTimers={};
@@ -519,6 +566,15 @@ function makeLayout(lvl){
   });
   let mi; do{mi=Math.floor(Math.random()*list.length);}while(list[mi].type!=='normal');
   list[mi].type='mission';
+
+  // לבנת תורה — 1 בכל שלב
+  const normalAfter = list.filter(b => b.type==='normal');
+  if(normalAfter.length > 0){
+    const tb = normalAfter[Math.floor(Math.random()*normalAfter.length)];
+    tb.type='torah';
+    tb.glowP=Math.random()*Math.PI*2;
+  }
+
   if(lvl>=3){let p=0; list.forEach(b=>{if(b.type==='normal'&&p<3&&Math.random()<0.12){b.type='powerup';b.pu=POWERUPS_DATA[Math.floor(Math.random()*POWERUPS_DATA.length)];p++;}});}
   if(lvl>=4) list.forEach(b=>{if(b.type==='normal'&&Math.random()<0.25)b.hp=2;});
   return list;
@@ -601,6 +657,15 @@ function drawBrick(b){
     ctx.fillStyle=g; ctx.beginPath(); ctx.roundRect(x,y,w,h,6); ctx.fill();
     ctx.shadowBlur=0; ctx.font=`bold ${h-2}px Heebo,sans-serif`;
     ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('!',x+w/2,y+h/2);
+  } else if(type==='torah'){
+    const gl=Math.sin(tick.v*0.04+(b.glowP||0))*0.5+0.5;
+    ctx.shadowColor='#00bfff'; ctx.shadowBlur=8+gl*14;
+    const g=ctx.createLinearGradient(x,y,x,y+h);
+    g.addColorStop(0,'#e0f7ff'); g.addColorStop(0.5,'#00bfff'); g.addColorStop(1,'#0077b6');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.roundRect(x,y,w,h,6); ctx.fill();
+    ctx.shadowBlur=0; ctx.font=`bold ${h-2}px serif`;
+    ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('✡',x+w/2,y+h/2);
   } else if(type==='powerup'){
     ctx.shadowColor=b.pu.color; ctx.shadowBlur=12;
     const g=ctx.createLinearGradient(x,y,x,y+h); g.addColorStop(0,'#fff'); g.addColorStop(1,b.pu.color);
@@ -671,6 +736,10 @@ function onDestroy(b){
   } else if(b.type==='mission'){
     spawnParts(cx,cy,'#00e676',16); SFX.brickMiss();
     score+=50*level; updScore(); updLove(10); showMission();
+  } else if(b.type==='torah'){
+    spawnParts(cx,cy,'#00bfff',20,'star'); SFX.brickChild();
+    score+=80*level; updScore(); updLove(8);
+    showTorah();
   } else if(b.type==='powerup'){
     score+=30*level; updScore();
     drops.push({x:cx,y:cy,pu:b.pu,color:b.pu.color});
@@ -693,7 +762,6 @@ function loop(){
   bg.addColorStop(0,skin.bg[0]); bg.addColorStop(1,skin.bg[2]);
   ctx.fillStyle=bg; ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // Stars
   starsBg.forEach(s=>{ ctx.save(); ctx.globalAlpha=0.3+Math.sin(tick.v*0.02+s.tw)*0.2;
     ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s.x*canvas.width,s.y*canvas.height,s.r,0,Math.PI*2); ctx.fill(); ctx.restore(); });
 
@@ -751,7 +819,6 @@ function updBrickProgress(){
     left === 1 ? '🧱 לבנה אחת נותרה!' :
     '🧱 ' + left + ' / ' + total + ' לבנות נותרו';
 }
-
 function celebrateLove(){ SFX.loveFull();
   for(let i=0;i<15;i++) setTimeout(()=>launchHearts(Math.random()*canvas.width,Math.random()*canvas.height/2),i*100);
   showFlash(canvas.width/2,canvas.height/2,'💖 אהבת האחים גדלה! 💖'); }
@@ -762,29 +829,31 @@ function celebrateLove(){ SFX.loveFull();
 function openPraise(){ document.getElementById('praiseLoading').style.display='block'; document.getElementById('praiseContent').classList.add('hidden'); document.getElementById('praisePopup').classList.remove('hidden'); }
 function revealPraise(name,emoji,text){ document.getElementById('pcEmoji').textContent=emoji; document.getElementById('pcName').textContent=name+' '+emoji; document.getElementById('pcText').textContent=text;
   document.getElementById('praiseLoading').style.display='none'; document.getElementById('praiseContent').classList.remove('hidden'); }
+
 function getPraiseText(child) {
   const praises = PRAISES[child.name] || [];
-  // If the current player hit their own brick — special personal message
+  const isF = child.g === 'נ';
   if (currentPlayer && child.name === currentPlayer.name) {
-    const selfPraises = [
-      'וואו ' + child.name + ', שברת את הלבנה שלך! את/ה מדהים/ה! 🌟',
-      child.name + ', כמה כיף לראות אותך משחק! אתה/את הכי! 💖',
-      'יש! ' + child.name + ' — המשפחה כל כך גאה בך! ✨',
-      child.name + ', אתה/את הכוכב הגדול של המשפחה! 🌟',
+    const selfPraises = isF ? [
+      'וואו ' + child.name + ', שברת את הלבנה שלך! את מדהימה! 🌟',
+      child.name + ', כמה כיף לראות אותך משחקת! את הכי! 💖',
+    ] : [
+      'וואו ' + child.name + ', שברת את הלבנה שלך! אתה מדהים! 🌟',
+      child.name + ', כמה כיף לראות אותך משחק! אתה הכי! 💖',
     ];
     return selfPraises[Math.floor(Math.random()*selfPraises.length)];
   }
-  // Player hit another sibling's brick — message from current player TO that sibling
   if (currentPlayer) {
-    const fromPraises = [
-      (currentPlayer.name) + ' אומר/ת: ' + child.name + ', אני כל כך אוהב/ת אותך! 💝',
-      (currentPlayer.name) + ' רוצה שתדע/י: ' + child.name + ' — אתה/את מיוחד/ת לי! 🌸',
-      'מסר מ' + (currentPlayer.name) + ': ' + child.name + ', אני שמח/ה שאתה/את האח/אחות שלי! 💫',
-      (currentPlayer.name) + ' חושב/ת ש' + child.name + ' הכי טוב/ה! ' + child.emoji,
+    const pF = currentPlayer.g === 'נ';
+    const fromPraises = isF ? [
+      currentPlayer.name + (pF ? ' אומרת' : ' אומר') + ': ' + child.name + ', אני כל כך אוהב' + (pF ? 'ת' : '') + ' אותך! 💝',
+      'מסר מ' + currentPlayer.name + ': ' + child.name + ', אני ' + (pF ? 'שמחה' : 'שמח') + ' שאת האחות שלי! 💫',
+    ] : [
+      currentPlayer.name + (pF ? ' אומרת' : ' אומר') + ': ' + child.name + ', אני כל כך אוהב' + (pF ? 'ת' : '') + ' אותך! 💝',
+      'מסר מ' + currentPlayer.name + ': ' + child.name + ', אני ' + (pF ? 'שמחה' : 'שמח') + ' שאתה האח שלי! 💫',
     ];
     return fromPraises[Math.floor(Math.random()*fromPraises.length)];
   }
-  // No player selected — generic praise
   return praises[Math.floor(Math.random()*praises.length)];
 }
 
@@ -806,7 +875,50 @@ async function showPraise(child) {
   } catch (err) {
     revealPraise(child.name, child.emoji, getPraiseText(child));
   }
-}function showMission(){ paused=true; openPraise(); revealPraise('🎯 משימה!','✅',MISSIONS[Math.floor(Math.random()*MISSIONS.length)]); }
+}
+
+function openTorah(){
+  document.getElementById('torahLoading').style.display='block';
+  document.getElementById('torahContent').classList.add('hidden');
+  document.getElementById('torahPopup').classList.remove('hidden');
+}
+
+async function showTorah() {
+  paused = true;
+  openTorah();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch('/api/praise', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'torah' }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error('API failed');
+    const { praise } = await res.json();
+    document.getElementById('torahText').textContent = praise;
+    document.getElementById('torahLoading').style.display = 'none';
+    document.getElementById('torahContent').classList.remove('hidden');
+  } catch (err) {
+    clearTimeout(timeout);
+    const fallback = TORAH_FALLBACKS[Math.floor(Math.random()*TORAH_FALLBACKS.length)];
+    document.getElementById('torahText').textContent = fallback;
+    document.getElementById('torahLoading').style.display = 'none';
+    document.getElementById('torahContent').classList.remove('hidden');
+  }
+}
+
+function showMission(){ paused=true; openPraise(); revealPraise('🎯 משימה!','✅',MISSIONS[Math.floor(Math.random()*MISSIONS.length)]); }
+
+document.getElementById('torahContinueBtn').addEventListener('click',()=>{
+  document.getElementById('torahPopup').classList.add('hidden');
+  document.getElementById('torahContent').classList.add('hidden');
+  document.getElementById('torahLoading').style.display='block';
+  paused=false;
+});
+
 document.getElementById('praiseContinueBtn').addEventListener('click',()=>{
   document.getElementById('praisePopup').classList.add('hidden'); document.getElementById('praiseContent').classList.add('hidden');
   document.getElementById('praiseLoading').style.display='block'; paused=false; });
@@ -871,7 +983,7 @@ document.getElementById('lbHudBtn').addEventListener('click',openLB);
 document.getElementById('closeLbBtn').addEventListener('click',closeLB);
 
 // ══════════════════════════════════════════════
-//  MUTE TOGGLE
+//  MUTE
 // ══════════════════════════════════════════════
 document.getElementById('muteBtn').addEventListener('click',()=>{
   cfg.sfx=!cfg.sfx; cfg.music=!cfg.music;
@@ -879,7 +991,7 @@ document.getElementById('muteBtn').addEventListener('click',()=>{
   cfg.music?startMusic():stopMusic(); saveCfg(); });
 
 // ══════════════════════════════════════════════
-//  PLAYER SELECT SCREEN
+//  PLAYER SELECT
 // ══════════════════════════════════════════════
 function buildPlayerGrid() {
   const grid = document.getElementById('playerGrid');
@@ -892,7 +1004,6 @@ function buildPlayerGrid() {
       <span class="pCheck">✅</span>
       <span class="pEmoji">${child.emoji}</span>
       <span class="pName">${child.name}</span>`;
-    card.style.borderColor = 'rgba(255,255,255,0.12)';
     card.addEventListener('click', () => {
       document.querySelectorAll('.playerCard').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
@@ -927,7 +1038,6 @@ document.getElementById('confirmPlayerBtn').addEventListener('click', () => {
   applyPlayerToBadge();
 });
 
-
 // ══════════════════════════════════════════════
 //  START
 // ══════════════════════════════════════════════
@@ -960,7 +1070,7 @@ document.addEventListener('keydown',e=>{
 //  INIT
 // ══════════════════════════════════════════════
 loadCfg(); buildSkinGrid(); updLives();
-showPlayerSelect();  // Show player-select before start screen
+showPlayerSelect();
 requestAnimationFrame(function idle(){tick.v++; if(gState==='start')requestAnimationFrame(idle);});
 </script>
 </body>
