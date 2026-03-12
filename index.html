@@ -490,6 +490,19 @@ function stopMusic(){ if(mTimer){clearTimeout(mTimer);mTimer=null;} }
 //  LEADERBOARD
 // ══════════════════════════════════════════════
 function getLB(){ try{return JSON.parse(localStorage.getItem('lb')||'[]');}catch{return[];} }
+
+function saveProgress(){
+  if(!currentPlayer) return;
+  const key = 'prog_' + currentPlayer.name;
+  const data = { level, score, lives, lovePct };
+  localStorage.setItem(key, JSON.stringify(data));
+}
+function loadProgress(playerName){
+  try { return JSON.parse(localStorage.getItem('prog_' + playerName) || 'null'); } catch { return null; }
+}
+function clearProgress(playerName){
+  localStorage.removeItem('prog_' + playerName);
+}
 function saveLB(sc,lvl){
   const lb=getLB();
   lb.push({
@@ -826,7 +839,7 @@ function celebrateLove(){ SFX.loveFull();
 // ══════════════════════════════════════════════
 //  POPUPS
 // ══════════════════════════════════════════════
-function openPraise(){ document.getElementById('praiseLoading').style.display='block'; document.getElementById('praiseContent').classList.add('hidden'); document.getElementById('praisePopup').classList.remove('hidden'); try{if(AC)AC.suspend();}catch{} }
+function openPraise(){ document.getElementById('praiseLoading').style.display='block'; document.getElementById('praiseContent').classList.add('hidden'); document.getElementById('praisePopup').classList.remove('hidden'); stopMusic(); }
 function revealPraise(name,emoji,text){ document.getElementById('pcEmoji').textContent=emoji; document.getElementById('pcName').textContent=name+' '+emoji; document.getElementById('pcText').textContent=text;
   document.getElementById('praiseLoading').style.display='none'; document.getElementById('praiseContent').classList.remove('hidden'); }
 
@@ -861,21 +874,30 @@ async function showPraise(child) {
   if(popupActive) return;
   popupActive = true;
   paused = true;
+  stopMusic();
   openPraise();
+  const controller = new AbortController();
+  const fallbackTimer = setTimeout(() => {
+    controller.abort();
+    if(popupActive && document.getElementById('praiseContent').classList.contains('hidden'))
+      revealPraise(child.name, child.emoji, getPraiseText(child));
+  }, 1500);
   try {
     const res = await fetch('/api/praise', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        childName: child.name,
-        playerName: currentPlayer?.name || null
-      })
+      body: JSON.stringify({ childName: child.name, playerName: currentPlayer?.name || null }),
+      signal: controller.signal
     });
-    if (!res.ok) throw new Error('API failed');
+    clearTimeout(fallbackTimer);
+    if (!res.ok) throw new Error();
     const { praise } = await res.json();
-    revealPraise(child.name, child.emoji, praise);
-  } catch (err) {
-    revealPraise(child.name, child.emoji, getPraiseText(child));
+    if(popupActive && document.getElementById('praiseContent').classList.contains('hidden'))
+      revealPraise(child.name, child.emoji, praise);
+  } catch {
+    clearTimeout(fallbackTimer);
+    if(popupActive && document.getElementById('praiseContent').classList.contains('hidden'))
+      revealPraise(child.name, child.emoji, getPraiseText(child));
   }
 }
 
@@ -883,16 +905,24 @@ function openTorah(){
   document.getElementById('torahLoading').style.display='block';
   document.getElementById('torahContent').classList.add('hidden');
   document.getElementById('torahPopup').classList.remove('hidden');
-  try{if(AC)AC.suspend();}catch{}
+  stopMusic();
 }
 
 async function showTorah() {
   if(popupActive) return;
   popupActive = true;
   paused = true;
+  stopMusic();
   openTorah();
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6000);
+  const fallbackTimer = setTimeout(() => {
+    controller.abort();
+    if(popupActive && document.getElementById('torahContent').classList.contains('hidden')) {
+      document.getElementById('torahText').textContent = TORAH_FALLBACKS[Math.floor(Math.random()*TORAH_FALLBACKS.length)];
+      document.getElementById('torahLoading').style.display = 'none';
+      document.getElementById('torahContent').classList.remove('hidden');
+    }
+  }, 1500);
   try {
     const res = await fetch('/api/praise', {
       method: 'POST',
@@ -900,18 +930,21 @@ async function showTorah() {
       body: JSON.stringify({ type: 'torah' }),
       signal: controller.signal
     });
-    clearTimeout(timeout);
-    if (!res.ok) throw new Error('API failed');
+    clearTimeout(fallbackTimer);
+    if (!res.ok) throw new Error();
     const { praise } = await res.json();
-    document.getElementById('torahText').textContent = praise;
-    document.getElementById('torahLoading').style.display = 'none';
-    document.getElementById('torahContent').classList.remove('hidden');
-  } catch (err) {
-    clearTimeout(timeout);
-    const fallback = TORAH_FALLBACKS[Math.floor(Math.random()*TORAH_FALLBACKS.length)];
-    document.getElementById('torahText').textContent = fallback;
-    document.getElementById('torahLoading').style.display = 'none';
-    document.getElementById('torahContent').classList.remove('hidden');
+    if(popupActive && document.getElementById('torahContent').classList.contains('hidden')) {
+      document.getElementById('torahText').textContent = praise;
+      document.getElementById('torahLoading').style.display = 'none';
+      document.getElementById('torahContent').classList.remove('hidden');
+    }
+  } catch {
+    clearTimeout(fallbackTimer);
+    if(popupActive && document.getElementById('torahContent').classList.contains('hidden')) {
+      document.getElementById('torahText').textContent = TORAH_FALLBACKS[Math.floor(Math.random()*TORAH_FALLBACKS.length)];
+      document.getElementById('torahLoading').style.display = 'none';
+      document.getElementById('torahContent').classList.remove('hidden');
+    }
   }
 }
 
@@ -921,12 +954,12 @@ document.getElementById('torahContinueBtn').addEventListener('click',()=>{
   document.getElementById('torahPopup').classList.add('hidden');
   document.getElementById('torahContent').classList.add('hidden');
   document.getElementById('torahLoading').style.display='block';
-  paused=false; popupActive=false; try{if(AC&&cfg.music)AC.resume();}catch{}
+  paused=false; popupActive=false; if(cfg.music)startMusic();
 });
 
 document.getElementById('praiseContinueBtn').addEventListener('click',()=>{
   document.getElementById('praisePopup').classList.add('hidden'); document.getElementById('praiseContent').classList.add('hidden');
-  document.getElementById('praiseLoading').style.display='block'; paused=false; popupActive=false; try{if(AC&&cfg.music)AC.resume();}catch{}
+  document.getElementById('praiseLoading').style.display='block'; paused=false; popupActive=false; if(cfg.music)startMusic();
 });
 
 // ══════════════════════════════════════════════
@@ -949,13 +982,18 @@ function doLevelComplete(){ SFX.levelUp(); gState='levelcomplete';
   document.getElementById('levelComplete').classList.remove('hidden'); }
 document.getElementById('nextLvlBtn').addEventListener('click',()=>{
   document.getElementById('levelComplete').classList.add('hidden'); level++;
-  document.getElementById('levelDisplay').textContent=level; initLevel(); gState='playing'; });
+  document.getElementById('levelDisplay').textContent=level; initLevel(); gState='playing';
+  saveProgress(); });
 
 function gameOver(){ gState='gameover'; saveLB(score,level);
+  if(currentPlayer) clearProgress(currentPlayer.name);
   document.getElementById('finalScore').textContent='ניקוד: '+score.toLocaleString();
   document.getElementById('gameOverScreen').classList.remove('hidden'); stopMusic(); }
 
-function resetGame(){ score=0;lives=3;level=1;lovePct=0; updScore(); updLives();
+function resetGame(){ score=0;lives=3;level=1;lovePct=0; paused=false; popupActive=false;
+  document.getElementById('praisePopup').classList.add('hidden');
+  document.getElementById('torahPopup').classList.add('hidden');
+  updScore(); updLives();
   document.getElementById('levelDisplay').textContent=1; document.getElementById('loveMeterFill').style.width='0%'; initLevel(); }
 
 document.getElementById('restartBtn').addEventListener('click',()=>{
@@ -1042,6 +1080,21 @@ document.getElementById('confirmPlayerBtn').addEventListener('click', () => {
   document.getElementById('playerSelectScreen').classList.add('hidden');
   document.getElementById('startScreen').classList.remove('hidden');
   applyPlayerToBadge();
+  // הצג הודעת המשך אם יש שמירה
+  const saved = currentPlayer ? loadProgress(currentPlayer.name) : null;
+  const startBtn = document.getElementById('startBtn');
+  const existingNote = document.getElementById('savedLevelNote');
+  if(existingNote) existingNote.remove();
+  if(saved && saved.level > 1){
+    startBtn.textContent = '▶ המשך משלב ' + saved.level;
+    const note = document.createElement('div');
+    note.id = 'savedLevelNote';
+    note.style.cssText = 'color:rgba(255,255,255,0.7);font-size:13px;margin-top:-8px;margin-bottom:8px;';
+    note.textContent = '(' + currentPlayer.emoji + ' ' + currentPlayer.name + ' הגיע/ה עד שלב ' + saved.level + ')';
+    startBtn.parentNode.insertBefore(note, startBtn.nextSibling);
+  } else {
+    startBtn.textContent = '▶ התחל לשחק';
+  }
 });
 
 // ══════════════════════════════════════════════
@@ -1050,7 +1103,21 @@ document.getElementById('confirmPlayerBtn').addEventListener('click', () => {
 document.getElementById('startBtn').addEventListener('click',()=>{
   try{ac();}catch{}
   document.getElementById('startScreen').classList.add('hidden');
-  resetGame(); gState='playing'; loop(); startMusic(); });
+  const saved = currentPlayer ? loadProgress(currentPlayer.name) : null;
+  if(saved && saved.level > 1){
+    // טען מהשלב האחרון
+    score=saved.score||0; lives=saved.lives||3; level=saved.level||1; lovePct=saved.lovePct||0;
+    paused=false; popupActive=false;
+    document.getElementById('praisePopup').classList.add('hidden');
+    document.getElementById('torahPopup').classList.add('hidden');
+    updScore(); updLives();
+    document.getElementById('levelDisplay').textContent=level;
+    document.getElementById('loveMeterFill').style.width=(lovePct*100)+'%';
+    initLevel();
+  } else {
+    resetGame();
+  }
+  gState='playing'; loop(); startMusic(); });
 
 // ══════════════════════════════════════════════
 //  INPUT
